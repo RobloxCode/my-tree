@@ -24,8 +24,16 @@ typedef enum {
  * T    = element type
  * Name = generated tree type and function prefix
  *
- * Requires a comparison function:
+ * Requires a comparison function for each data type you
+ * want to use:
  *     int compare(const T *a, const T *b);
+ *
+ * Ex:
+ *  int int_compare(const int *a, const int *b) {
+ *       if (*a < *b) return -1;
+ *       if (*a > *b) return 1;
+ *       return 0;
+ *   }
  */
 #define TREE_DEFINE(T, Name)                                                   \
                                                                                \
