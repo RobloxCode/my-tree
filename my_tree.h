@@ -1,16 +1,13 @@
-
 #ifndef TREE_H
 #define TREE_H
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 /*
- * Tree comparison function:
- *   negative: a < b
- *   zero:     a == b
- *   positive: a > b
+ * Tree insertion results.
  */
 typedef enum {
     TREE_INSERTED,
@@ -19,54 +16,74 @@ typedef enum {
 } TreeInsertResult;
 
 /*
- * TREE_DEFINE(T, Name)
+ * TREE_DEFINE(T, TreeName, NodeName)
  *
- * T    = element type
- * Name = generated tree type and function prefix
+ * T        = element type
+ * TreeName = generated tree type and function prefix
+ * NodeName = generated node type
  *
- * Requires a comparison function for each data type you
- * want to use:
- *     int compare(const T *a, const T *b);
+ * The comparison function must return:
+ *   negative if a < b
+ *   zero     if a == b
+ *   positive if a > b
  *
- * Ex:
- *  int int_compare(const int *a, const int *b) {
- *       if (*a < *b) return -1;
- *       if (*a > *b) return 1;
- *       return 0;
- *   }
+ * The print function receives a pointer to the value.
+ *
+ * Example:
+ *   TREE_DEFINE(int, IntTree, IntNode)
+ *
+ *   Generates:
+ *     IntTree
+ *     IntNode
+ *     IntTree_init()
+ *     IntTree_insert()
+ *     IntTree_find()
+ *     IntTree_print_inorder()
+ *     IntTree_print_preorder()
+ *     IntTree_print_postorder()
+ *     IntTree_deinit()
  */
-#define TREE_DEFINE(T, Name)                                                   \
+
+#define TREE_DEFINE(T, TreeName, NodeName)                                     \
                                                                                \
-    typedef struct Name##_Node {                                               \
+    /* Node structure */                                                       \
+    typedef struct NodeName {                                                  \
         T value;                                                               \
-        struct Name##_Node *left;                                              \
-        struct Name##_Node *right;                                             \
-    } Name##_Node;                                                             \
+        struct NodeName *left;                                                 \
+        struct NodeName *right;                                                \
+    } NodeName;                                                                \
                                                                                \
-    typedef struct Name {                                                      \
-        Name##_Node *root;                                                     \
+    /* Tree structure */                                                       \
+    typedef struct TreeName {                                                  \
+        NodeName *root;                                                        \
         size_t len;                                                            \
-    } Name;                                                                    \
+    } TreeName;                                                                \
                                                                                \
-    static inline void Name##_init(Name *tree) {                               \
+    /* Initialize an empty tree */                                             \
+    static inline void TreeName##_init(TreeName *tree) {                       \
         tree->root = NULL;                                                     \
         tree->len = 0;                                                         \
     }                                                                          \
                                                                                \
-    static inline Name##_Node *Name##_create_node(T value) {                   \
-        Name##_Node *node = malloc(sizeof(*node));                             \
+    /* Allocate and initialize a node */                                       \
+    static inline NodeName *TreeName##_create_node(T value) {                  \
+        NodeName *node = malloc(sizeof(*node));                                \
+                                                                               \
         if (node == NULL) {                                                    \
             return NULL;                                                       \
         }                                                                      \
+                                                                               \
         node->value = value;                                                   \
         node->left = NULL;                                                     \
         node->right = NULL;                                                    \
+                                                                               \
         return node;                                                           \
     }                                                                          \
                                                                                \
-    static inline TreeInsertResult Name##_insert(                              \
-        Name *tree, T value, int (*compare)(const T *, const T *)) {           \
-        Name##_Node **link = &tree->root;                                      \
+    /* Insert a value into the tree */                                         \
+    static inline TreeInsertResult TreeName##_insert(                          \
+        TreeName *tree, T value, int (*compare)(const T *, const T *)) {       \
+        NodeName **link = &tree->root;                                         \
                                                                                \
         while (*link != NULL) {                                                \
             int result = compare(&value, &(*link)->value);                     \
@@ -82,7 +99,8 @@ typedef enum {
             }                                                                  \
         }                                                                      \
                                                                                \
-        Name##_Node *node = Name##_create_node(value);                         \
+        NodeName *node = TreeName##_create_node(value);                        \
+                                                                               \
         if (node == NULL) {                                                    \
             return TREE_NO_MEMORY;                                             \
         }                                                                      \
@@ -93,9 +111,10 @@ typedef enum {
         return TREE_INSERTED;                                                  \
     }                                                                          \
                                                                                \
-    static inline T *Name##_find(Name *tree, T value,                          \
-                                 int (*compare)(const T *, const T *)) {       \
-        Name##_Node *node = tree->root;                                        \
+    /* Find a value and return a pointer to it */                              \
+    static inline T *TreeName##_find(TreeName *tree, T value,                  \
+                                     int (*compare)(const T *, const T *)) {   \
+        NodeName *node = tree->root;                                           \
                                                                                \
         while (node != NULL) {                                                 \
             int result = compare(&value, &node->value);                        \
@@ -114,18 +133,106 @@ typedef enum {
         return NULL;                                                           \
     }                                                                          \
                                                                                \
-    static inline void Name##_destroy_nodes(Name##_Node *node) {               \
+    /* Inorder traversal: left, root, right */                                 \
+    static inline void TreeName##_print_inorder_node(                          \
+        const NodeName *node, void (*print_value)(const T *), bool *first) {   \
         if (node == NULL) {                                                    \
             return;                                                            \
         }                                                                      \
-        Name##_destroy_nodes(node->left);                                      \
-        Name##_destroy_nodes(node->right);                                     \
+                                                                               \
+        TreeName##_print_inorder_node(node->left, print_value, first);         \
+                                                                               \
+        if (!*first) {                                                         \
+            printf(", ");                                                      \
+        }                                                                      \
+                                                                               \
+        print_value(&node->value);                                             \
+        *first = false;                                                        \
+                                                                               \
+        TreeName##_print_inorder_node(node->right, print_value, first);        \
+    }                                                                          \
+                                                                               \
+    static inline void TreeName##_print_inorder(                               \
+        const TreeName *tree, void (*print_value)(const T *)) {                \
+        bool first = true;                                                     \
+                                                                               \
+        TreeName##_print_inorder_node(tree->root, print_value, &first);        \
+                                                                               \
+        printf("\n");                                                          \
+    }                                                                          \
+                                                                               \
+    /* Preorder traversal: root, left, right */                                \
+    static inline void TreeName##_print_preorder_node(                         \
+        const NodeName *node, void (*print_value)(const T *), bool *first) {   \
+        if (node == NULL) {                                                    \
+            return;                                                            \
+        }                                                                      \
+                                                                               \
+        if (!*first) {                                                         \
+            printf(", ");                                                      \
+        }                                                                      \
+                                                                               \
+        print_value(&node->value);                                             \
+        *first = false;                                                        \
+                                                                               \
+        TreeName##_print_preorder_node(node->left, print_value, first);        \
+                                                                               \
+        TreeName##_print_preorder_node(node->right, print_value, first);       \
+    }                                                                          \
+                                                                               \
+    static inline void TreeName##_print_preorder(                              \
+        const TreeName *tree, void (*print_value)(const T *)) {                \
+        bool first = true;                                                     \
+                                                                               \
+        TreeName##_print_preorder_node(tree->root, print_value, &first);       \
+                                                                               \
+        printf("\n");                                                          \
+    }                                                                          \
+                                                                               \
+    /* Postorder traversal: left, right, root */                               \
+    static inline void TreeName##_print_postorder_node(                        \
+        const NodeName *node, void (*print_value)(const T *), bool *first) {   \
+        if (node == NULL) {                                                    \
+            return;                                                            \
+        }                                                                      \
+                                                                               \
+        TreeName##_print_postorder_node(node->left, print_value, first);       \
+                                                                               \
+        TreeName##_print_postorder_node(node->right, print_value, first);      \
+                                                                               \
+        if (!*first) {                                                         \
+            printf(", ");                                                      \
+        }                                                                      \
+                                                                               \
+        print_value(&node->value);                                             \
+        *first = false;                                                        \
+    }                                                                          \
+                                                                               \
+    static inline void TreeName##_print_postorder(                             \
+        const TreeName *tree, void (*print_value)(const T *)) {                \
+        bool first = true;                                                     \
+                                                                               \
+        TreeName##_print_postorder_node(tree->root, print_value, &first);      \
+                                                                               \
+        printf("\n");                                                          \
+    }                                                                          \
+                                                                               \
+    /* Recursively free every node */                                          \
+    static inline void TreeName##_destroy_nodes(NodeName *node) {              \
+        if (node == NULL) {                                                    \
+            return;                                                            \
+        }                                                                      \
+                                                                               \
+        TreeName##_destroy_nodes(node->left);                                  \
+        TreeName##_destroy_nodes(node->right);                                 \
+                                                                               \
         free(node);                                                            \
     }                                                                          \
                                                                                \
-    static inline void Name##_deinit(Name *tree) {                             \
-        Name##_destroy_nodes(tree->root);                                      \
-        Name##_init(tree);                                                     \
+    /* Free the tree and reset it */                                           \
+    static inline void TreeName##_deinit(TreeName *tree) {                     \
+        TreeName##_destroy_nodes(tree->root);                                  \
+        TreeName##_init(tree);                                                 \
     }
 
 #endif
